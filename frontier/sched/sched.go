@@ -1,4 +1,4 @@
-package frontier
+package sched
 
 import (
 	"context"
@@ -6,17 +6,17 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ritvikos/synapse/pkg/frontier"
-	"github.com/ritvikos/synapse/pkg/frontier/source"
-	"github.com/ritvikos/synapse/pkg/model"
+	"github.com/ritvikos/synapse/frontier/source"
+	"github.com/ritvikos/synapse/model"
 )
 
 // TODO: Track relevent metrics for decision making in PrefetchState and FlushState in Scheduler
 // Or combine them into a single State, if relevant.
 
 type Scheduler[T any] struct {
-	source       source.Source[T]
-	policy       frontier.BufferPolicy
+	source source.Source[T]
+	policy BufferPolicy
+
 	prefetchBuf  chan *model.Task[T]
 	flushBuf     chan *model.Task[T]
 	tickInterval time.Duration
@@ -30,7 +30,7 @@ type Scheduler[T any] struct {
 
 func NewScheduler[T any](
 	source source.Source[T],
-	policy frontier.BufferPolicy,
+	policy BufferPolicy,
 	prefetchBufSize uint,
 	flushBufSize uint,
 	tickInterval time.Duration,
@@ -102,7 +102,7 @@ func (s *Scheduler[T]) prefetchWorker() {
 }
 
 func (s *Scheduler[T]) checkAndPrefetch() {
-	state := frontier.PrefetchState{
+	state := PrefetchState{
 		Capacity: cap(s.prefetchBuf),
 		Size:     len(s.prefetchBuf),
 	}
@@ -162,7 +162,7 @@ func (s *Scheduler[T]) flushWorker() {
 }
 
 func (s *Scheduler[T]) checkAndFlush() {
-	state := frontier.FlushState{
+	state := FlushState{
 		Capacity: cap(s.flushBuf),
 		Size:     len(s.flushBuf),
 	}

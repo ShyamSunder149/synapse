@@ -6,19 +6,8 @@ import (
 	"io"
 	"net/http"
 
-	hf "github.com/ritvikos/synapse/internal/fetcher/http"
-	"github.com/ritvikos/synapse/pkg/policy"
+	"github.com/ritvikos/synapse/policy"
 )
-
-type EventHooks struct {
-	OnRequest  func(*http.Request)
-	OnResponse func(*http.Response)
-	OnError    func(*http.Request, error)
-	OnChunk    func([]byte)
-
-	// TODO: expose parser
-	OnScraped func(*http.Response)
-}
 
 type HttpFetcher struct {
 	httpClient      HttpClient
@@ -105,12 +94,12 @@ func (f *HttpFetcher) do(_ context.Context, req *http.Request) (*http.Response, 
 	f.eventHook.OnResponse(resp)
 
 	// TODO: As per config (set by user), but do it without conditional checks every time
-	if err := hf.DecompressResponse(resp); err != nil {
+	if err := decompressResponse(resp); err != nil {
 		resp.Body.Close()
 		return nil, fmt.Errorf("decompression failed: %w", err)
 	}
 
-	utf8reader, err := hf.NewUTF8WithFallbackReader(resp, "")
+	utf8reader, err := newUTF8WithFallbackReader(resp, "")
 	if err != nil {
 		resp.Body.Close()
 		return nil, fmt.Errorf("failed to create UTF-8 reader: %w", err)

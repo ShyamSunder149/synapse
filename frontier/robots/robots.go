@@ -4,18 +4,16 @@ import (
 	"context"
 	"fmt"
 	"sync"
-
-	"github.com/ritvikos/synapse/pkg/frontier/robots"
 )
 
 // TODO: Pending implementation
 
-var RobotsTxtNeedsFetchError = robots.RobotsTxtNeedsFetchError
+var ErrRobotsTxtNeedsFetch = fmt.Errorf("robots.txt needs fetch")
 
-type RobotsTxtHandler struct {
+type RobotsHandler struct {
 	userAgent string
-	fetcher   robots.RobotsTxtFetcher
-	backend   robots.RobotsTxtBackend
+	fetcher   RobotsTxtFetcher
+	backend   RobotsTxtBackend
 	requestCh chan string
 	workers   uint
 
@@ -28,12 +26,12 @@ type RobotsTxtHandler struct {
 
 func NewRobotsHandler(
 	userAgent string,
-	fetcher robots.RobotsTxtFetcher,
-	backend robots.RobotsTxtBackend,
+	fetcher RobotsTxtFetcher,
+	backend RobotsTxtBackend,
 	requestChSize uint,
 	workers uint,
-) *RobotsTxtHandler {
-	return &RobotsTxtHandler{
+) *RobotsHandler {
+	return &RobotsHandler{
 		userAgent: userAgent,
 		fetcher:   fetcher,
 		backend:   backend,
@@ -42,7 +40,7 @@ func NewRobotsHandler(
 	}
 }
 
-func (r *RobotsTxtHandler) Start(ctx context.Context) error {
+func (r *RobotsHandler) Start(ctx context.Context) error {
 	r.ctx, r.cancel = context.WithCancel(ctx)
 
 	for range r.workers {
@@ -53,12 +51,16 @@ func (r *RobotsTxtHandler) Start(ctx context.Context) error {
 	return nil
 }
 
-func (r *RobotsTxtHandler) Stop() error {
-	r.wg.Wait()
-	return nil
+func (r *RobotsHandler) Submit(ctx context.Context, host string) error {
+	select {
+	case r.requestCh <- host:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
-func (r *RobotsTxtHandler) fetchWorker() {
+func (r *RobotsHandler) fetchWorker() {
 	defer r.wg.Done()
 
 	for {
@@ -86,28 +88,12 @@ func (r *RobotsTxtHandler) fetchWorker() {
 	}
 }
 
-func (r *RobotsTxtHandler) Retrieve(host string) (robots.RobotsEntry, error) {
-	// try retrieve from store
-	// if not found, fetch and parse
-
+func (r *RobotsHandler) Retrieve(host string) (RobotsEntry, error) {
 	if has, err := r.backend.Has(r.ctx, host); err != nil {
-		return robots.RobotsEntry{}, err
+		return RobotsEntry{}, err
 	} else if has {
 		return r.backend.Get(r.ctx, host)
 	}
 
-	return robots.RobotsEntry{}, nil
+	return RobotsEntry{}, nil
 }
-
-func (r *RobotsTxtHandler) Submit(ctx context.Context, host string) error {
-	select {
-	case r.requestCh <- host:
-		return nil
-	case <-ctx.Done():
-		return ctx.Err()
-	}
-}
-
-// func (r *RobotsTxtHandler) IsAllowed(ctx context.Context, url string) (bool, error) {
-// 	return true, nil
-// }

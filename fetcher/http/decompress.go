@@ -12,7 +12,7 @@ import (
 	"github.com/klauspost/compress/zstd"
 )
 
-func DecompressResponse(resp *http.Response) error {
+func decompressResponse(resp *http.Response) error {
 	if resp.Body == nil {
 		return nil
 	}

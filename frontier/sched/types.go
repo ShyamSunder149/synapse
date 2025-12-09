@@ -1,4 +1,4 @@
-package frontier
+package sched
 
 import (
 	"context"

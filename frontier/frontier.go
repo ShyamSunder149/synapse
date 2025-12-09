@@ -7,9 +7,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ritvikos/synapse/internal/frontier/robots"
-	"github.com/ritvikos/synapse/pkg/frontier/score"
-	model "github.com/ritvikos/synapse/pkg/model"
+	"github.com/ritvikos/synapse/frontier/robots"
+	"github.com/ritvikos/synapse/frontier/sched"
+	"github.com/ritvikos/synapse/frontier/score"
+	model "github.com/ritvikos/synapse/model"
 )
 
 type Config struct {
@@ -25,9 +26,9 @@ type Config struct {
 
 // T represents crawl metadata (e.g., URL, Request).
 type Frontier[T any] struct {
-	robotstxt *robots.RobotsTxtHandler
-	scorer    score.ScorePolicy[T]
-	scheduler *Scheduler[T]
+	robotstxt *robots.RobotsHandler
+	Scorer    score.Score[T]
+	scheduler *sched.Scheduler[T]
 	config    Config
 
 	// Channels
@@ -42,36 +43,17 @@ type Frontier[T any] struct {
 }
 
 func NewFrontier[T any](
-	robotsHandler *robots.RobotsTxtHandler,
-	scorer score.ScorePolicy[T],
-	scheduler *Scheduler[T],
+	robotstxt *robots.RobotsHandler,
+	scorer score.Score[T],
+	scheduler *sched.Scheduler[T],
 	config Config,
 ) *Frontier[T] {
 	return &Frontier[T]{
-		robotstxt: robotsHandler,
-		scorer:    scorer,
+		robotstxt: robotstxt,
+		Scorer:    scorer,
 		scheduler: scheduler,
 		config:    config,
 	}
-}
-
-func (f *Frontier[T]) Submit(ctx context.Context, endpoint string, metadata *T) error {
-	url, err := url.Parse(endpoint)
-	if err != nil {
-		return err
-	}
-
-	task := model.Task[T]{
-		Url:      url,
-		Metadata: metadata,
-	}
-
-	select {
-	case f.ingressCh <- &task:
-	case <-ctx.Done():
-	}
-
-	return nil
 }
 
 func (f *Frontier[T]) Start(ctx context.Context) error {
@@ -106,6 +88,25 @@ func (f *Frontier[T]) Start(ctx context.Context) error {
 	return f.scheduler.Start(ctx)
 }
 
+func (f *Frontier[T]) Enqueue(ctx context.Context, endpoint string, metadata *T) error {
+	url, err := url.Parse(endpoint)
+	if err != nil {
+		return err
+	}
+
+	task := model.Task[T]{
+		Url:      url,
+		Metadata: metadata,
+	}
+
+	select {
+	case f.ingressCh <- &task:
+	case <-ctx.Done():
+	}
+
+	return nil
+}
+
 func (f *Frontier[T]) robotsWorker() {
 	defer f.wg.Done()
 
@@ -121,7 +122,7 @@ func (f *Frontier[T]) robotsWorker() {
 			}
 
 			entry, err := f.robotstxt.Retrieve(task.Url.Host)
-			if err == robots.RobotsTxtNeedsFetchError {
+			if err == robots.ErrRobotsTxtNeedsFetch {
 				if err := f.robotstxt.Submit(f.ctx, task.Url.Host); err != nil {
 					log.Printf("error requesting robots.txt fetch for host %s: %v", task.Url.Host, err)
 					continue
@@ -172,7 +173,7 @@ func (f *Frontier[T]) scoreWorker() {
 				return
 			}
 
-			score, err := f.scorer.Score(f.ctx, task)
+			score, err := f.Scorer.Score(f.ctx, task)
 			if err != nil {
 				log.Printf("error scoring item: %v", err)
 				continue

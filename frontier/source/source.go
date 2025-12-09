@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/ritvikos/synapse/internal/lifecycle"
-	model "github.com/ritvikos/synapse/pkg/model"
+	model "github.com/ritvikos/synapse/model"
 )
 
 type Source[T any] interface {

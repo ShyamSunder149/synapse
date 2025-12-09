@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/Workiva/go-datastructures/queue"
-	"github.com/ritvikos/synapse/pkg/model"
+	"github.com/ritvikos/synapse/model"
 )
 
 type MemQueue[T any] struct {
