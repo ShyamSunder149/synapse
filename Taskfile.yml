@@ -1,0 +1,33 @@
+# https://taskfile.dev
+
+version: "3"
+
+vars:
+  GOLANG_LINT_INSTALL_URL: "https://golangci-lint.run/docs/welcome/install/local/"
+  PKGS:
+    - frontier/sched
+    - frontier/score
+    - frontier/robots
+    - fetcher/http
+    - spooler
+
+tasks:
+  test:
+    desc: "Run unit tests for {{.PKG}} package"
+    vars:
+      PKG: '{{.PKG | default "unknown"}}'
+    cmds:
+      - go test -v ./{{.PKG}}/...
+
+  test:all:
+    desc: "Run all unit tests in the project"
+    cmds:
+      - go test -v ./...
+
+  lint:
+    desc: "Run the linter"
+    cmds:
+      - golangci-lint run
+    preconditions:
+      - msg: "Go linter not installed (for installation, see: {{.GOLANG_LINT_INSTALL_URL}})"
+        sh: "golangci-lint --version"
