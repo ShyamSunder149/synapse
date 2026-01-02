@@ -5,24 +5,28 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/cookiejar"
 
 	"github.com/ritvikos/synapse/policy"
+	"golang.org/x/net/publicsuffix"
 )
 
 type HttpFetcher struct {
 	httpClient      HttpClient
 	retryController policy.RetryPolicy
 	eventHook       EventHooks
-	// cookieStore core.CookieStore
+	cookieJar       http.CookieJar
 }
 
 type Options func(*HttpFetcher)
 
 func NewHttpFetcher(httpClient HttpClient, opts ...Options) HttpFetcher {
+	jar, _ := cookiejar.New(&cookiejar.Options{PublicSuffixList: publicsuffix.List})
+
 	fetcher := HttpFetcher{
 		httpClient: httpClient,
 		eventHook:  NoopEventHook,
-		// retryController: retryController,
+		cookieJar:  jar,
 	}
 
 	for _, opt := range opts {
@@ -35,6 +39,16 @@ func NewHttpFetcher(httpClient HttpClient, opts ...Options) HttpFetcher {
 func WithEventHooks(hooks EventHooks) Options {
 	return func(f *HttpFetcher) {
 		f.eventHook = hooks
+	}
+}
+
+func WithCookieJar(jar http.CookieJar) Options {
+	return func(f *HttpFetcher) {
+		if jar == nil {
+			f.cookieJar = &NoopCookieJar{}
+			return
+		}
+		f.cookieJar = jar
 	}
 }
 
@@ -83,12 +97,20 @@ func (f *HttpFetcher) doRequest(ctx context.Context, method string, url string, 
 }
 
 func (f *HttpFetcher) do(_ context.Context, req *http.Request) (*http.Response, error) {
+	for _, cookie := range f.cookieJar.Cookies(req.URL) {
+		req.AddCookie(cookie)
+	}
+
 	f.eventHook.OnRequest(req)
 
 	resp, err := f.httpClient.Do(req)
 	if err != nil {
 		f.eventHook.OnError(req, err)
 		return nil, err
+	}
+
+	if cookies := resp.Cookies(); len(cookies) > 0 {
+		f.cookieJar.SetCookies(req.URL, cookies)
 	}
 
 	f.eventHook.OnResponse(resp)
