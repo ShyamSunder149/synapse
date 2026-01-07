@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/brianvoe/gofakeit/v7"
+	"github.com/ritvikos/synapse/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -65,6 +66,7 @@ func TestSpoolerSync(t *testing.T) {
 		},
 		FileWriterConfig: FileWriterConfig{
 			MaxFileSize: 5 * 1024 * 1024,
+			logger:      logger.New(),
 		},
 	}
 

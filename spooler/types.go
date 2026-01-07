@@ -2,6 +2,8 @@ package spooler
 
 import (
 	"errors"
+
+	"github.com/ritvikos/synapse/logger"
 )
 
 type SpoolerConfig struct {
@@ -89,6 +91,7 @@ type BatchHooks struct {
 
 type FileWriterConfig struct {
 	MaxFileSize int
+	logger      logger.Logger
 }
 
 func (c FileWriterConfig) Validate() error {

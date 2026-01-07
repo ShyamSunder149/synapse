@@ -10,18 +10,20 @@ import (
 var ErrWriteLimitReached = errors.New("write limit reached")
 
 // Factory for creating file writers with specific configurations.
-type writerFactory struct {
-	maxFileSize int
+type writer struct {
+	maxFileSize   int
+	currentWriter *fileWriter
 }
 
-// Create a new writer factory with the given configuration.
-func newWriterFactory(config FileWriterConfig) (writerFactory, error) {
+// Create a new writer with the given configuration.
+func newWriter(config FileWriterConfig) (writer, error) {
 	if err := config.Validate(); err != nil {
-		return writerFactory{}, fmt.Errorf("writer factory: invalid config: %w", err)
+		return writer{}, fmt.Errorf("writer: invalid config: %w", err)
 	}
 
-	return writerFactory{
-		maxFileSize: config.MaxFileSize,
+	return writer{
+		maxFileSize:   config.MaxFileSize,
+		currentWriter: nil,
 	}, nil
 }
 
@@ -42,7 +44,7 @@ type fileWriter struct {
 
 // Create a new file writer that writes to a temporary file in `dir`.
 // Upon commit, the file will be renamed to the specified `commitPath`.
-func (f *writerFactory) NewFileWriter(dir, fileName string) (*fileWriter, error) {
+func (f *writer) NewFileWriter(dir, fileName string) (*fileWriter, error) {
 	tmpFile, err := os.CreateTemp(dir, "*.tmp")
 	if err != nil {
 		return nil, err
